@@ -1,0 +1,11 @@
+# Virtual Machine Configuration
+
+This directory contains the Terraform configuration for creating a virtual machine.
+
+## Included Resources:
+- Virtual Machine (VM) with Ubuntu Server.
+- Network interface attached to a virtual network and public IP.
+- SSH access configuration.
+
+## Files:
+- `main.tf`: Terraform configuration file.

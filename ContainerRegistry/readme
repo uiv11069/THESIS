@@ -1,0 +1,10 @@
+# Container Registry Configuration
+
+This directory contains the Terraform configuration for creating an Azure Container Registry.
+
+## Included Resources:
+- Azure Container Registry (ACR) for managing container images.
+- Configured with tags for environment identification.
+
+## Files:
+- `main.tf`: Terraform configuration file.

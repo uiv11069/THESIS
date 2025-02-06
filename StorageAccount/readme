@@ -1,0 +1,10 @@
+# Storage Account Configuration
+
+This directory defines the Terraform configuration for creating an Azure Storage Account.
+
+## Included Resources:
+- General-purpose v2 Storage Account.
+- Security configurations and tagging.
+
+## Files:
+- `main.tf`: Terraform configuration file.

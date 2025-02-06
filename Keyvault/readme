@@ -1,0 +1,10 @@
+# Key Vault Configuration
+
+This directory contains the Terraform configuration for setting up an Azure Key Vault.
+
+## Included Resources:
+- Azure Key Vault for managing secrets.
+- Access policies for specific users or services.
+
+## Files:
+- `main.tf`: Terraform configuration file.

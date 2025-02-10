@@ -17,3 +17,8 @@ output "subnet_id" {
   description = "The ID of the Subnet"
   value       = azurerm_subnet.main_subnet.id
 }
+
+output "appservice_subnet_id" {
+  description = "ID of the App Service Subnet"
+  value       = azurerm_subnet.appservice_subnet.id
+}

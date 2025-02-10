@@ -1,0 +1,25 @@
+# App Service Module
+
+This module deploys an **Azure App Service** with **VNet integration**.
+
+## Resources Created
+1. **App Service Plan** (Basic B1)
+2. **App Service** (Linux-based, runs a Docker container)
+3. **VNet Integration** (Uses existing VNet)
+
+## Inputs
+- `resource_group_name` → Name of the Resource Group.
+- `location` → Azure region.
+- `app_name` → Name of the App Service.
+- `subnet_id` → **Subnet ID from Virtual Network**.
+
+## Outputs
+- `app_service_name` → Name of the App Service.
+- `app_service_url` → Default URL of the App Service.
+
+## Deployment
+Run the following commands:
+```bash
+cd AppService
+terraform init
+terraform apply -var="subnet_id=<PASTE_SUBNET_ID_HERE>"

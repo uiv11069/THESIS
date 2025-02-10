@@ -1,0 +1,28 @@
+# Azure Container App Module
+
+This Terraform module deploys a minimal **Azure Container App**.
+
+## Features
+- **Minimal resource consumption** for low-cost deployments.
+- **Automatic scaling** from 0 to 1 replicas.
+- **Runs an Nginx container** by default.
+
+## Inputs
+| Name                 | Description                          | Default               |
+|----------------------|--------------------------------------|-----------------------|
+| `resource_group_name`| Name of the Resource Group           | `thesis-container-rg` |
+| `location`           | Azure region for the Container App  | `West Europe`         |
+| `app_name`           | Name of the Container App           | `minimal-container-app` |
+
+## Outputs
+| Name               | Description                        |
+|--------------------|------------------------------------|
+| `container_app_name` | Name of the Container App          |
+| `container_app_url`  | Default URL for the Container App  |
+
+## Deployment Instructions
+1. Navigate to the **ContainerApp** module:
+   ```bash
+   cd ~/THESIS/ThesisDemo/INFRA/ContainerApp
+   terraform init
+   terraform apply

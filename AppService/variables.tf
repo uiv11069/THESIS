@@ -19,6 +19,6 @@ variable "app_name" {
 variable "subnet_id" {
   description = "ID of the App Service Subnet in the Virtual Network"
   type        = string
-  default     = "/subscriptions/42f0aa72-9941-46be-a162-e863bd1c1caf/resourceGroups/thesisRG/providers/Microsoft.Network/virtualNetworks/thesis-vnet/subnets/thesis-appservice-subnet"
+  default     = "/subscriptions/da9a301e-7a82-4e73-abb1-e28a503a0adf/resourceGroups/thesisRG/providers/Microsoft.Network/virtualNetworks/thesis-vnet/subnets/thesis-appservice-subnet"
 }
 

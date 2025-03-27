@@ -1,37 +1,33 @@
-# Storage Account Module
 
-This Terraform module creates a Storage Account in Azure.
+---
 
-## Resources Created
-- Resource Group (if not provided)
-- Azure Storage Account
+### 📁 **Storage Account – `INFRA/StorageAccount/readme.md`**
+```markdown
+# Azure Storage Account
 
-## Variables
-| Name                 | Description                                                    | Default       |
-|----------------------|----------------------------------------------------------------|---------------|
-| `resource_group_name` | Name of the resource group                                     | `thesis-storage-rg` |
-| `location`           | Azure region                                                  | `West Europe` |
-| `storage_account_name` | Name of the storage account                                   | `thesisstorageaccount` |
-| `account_tier`       | The performance tier of the storage account (`Standard`/`Premium`) | `Standard`    |
-| `account_replication_type` | The replication strategy (`LRS`, `GRS`, `RAGRS`, `ZRS`) | `LRS`        |
-| `tags`              | A map of tags to associate with the resource                    | `{ environment = "dev" }` |
+This module provisions a general-purpose v2 storage account.
 
-## Outputs
-| Name                  | Description                        |
-|-----------------------|------------------------------------|
-| `storage_account_id`  | ID of the created Storage Account  |
-| `storage_account_name` | Name of the created Storage Account |
-| `primary_blob_endpoint` | Primary Blob endpoint for the storage account |
+## 🧱 Resources Deployed
+- Azure Storage Account (StorageV2, LRS)
 
-## Usage
-```hcl
-module "storage_account" {
-  source                = "./modules/storage_account"
-  resource_group_name   = "thesis-storage-rg"
-  storage_account_name  = "thesisstorageaccount"
-  account_tier          = "Standard"
-  account_replication_type = "LRS"
-  tags = {
-    environment = "dev"
-  }
-}
+## 📥 Inputs
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `resource_group_name` | RG name | `thesis-storage-rg` |
+| `location` | Azure region | `westeurope` |
+| `storage_account_name` | Unique name for account | `thesisstorageacc` |
+| `account_tier` | Storage tier | `Standard` |
+| `account_replication_type` | Replication | `LRS` |
+| `tags` | Optional tags | `{ environment = "dev" }` |
+
+## 📤 Outputs
+| Output | Description |
+|--------|-------------|
+| `storage_account_id` | Resource ID |
+| `primary_blob_endpoint` | URL for blob access |
+
+## 🚀 How to Deploy
+```bash
+cd INFRA/StorageAccount
+terraform init
+terraform apply -auto-approve

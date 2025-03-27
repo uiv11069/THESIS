@@ -1,57 +1,29 @@
-# Azure Kubernetes Service (AKS) Deployment
+# Azure Kubernetes Service (AKS) Module
 
-## Overview
-This module deploys an **Azure Kubernetes Service (AKS) cluster** inside an existing **Virtual Network (VNet)**. It ensures that the cluster is securely integrated with the infrastructure, allowing seamless networking and scaling.
+This module deploys a minimal AKS cluster into an existing virtual network subnet.
 
-## Resources Created
-- **Azure Kubernetes Service (AKS)**
-- **Default Node Pool** with configurable VM size and node count
-- **System Assigned Identity** for secure access
-- **Azure CNI Networking**
+## 🧱 Resources Deployed
+- Azure Kubernetes Cluster (AKS)
+- Default System Node Pool
+- System Assigned Identity
+- Network Profile (Azure CNI)
 
-## Inputs
-| Variable | Description | Default |
+## 📥 Inputs
+| Variable | Description | Example |
 |----------|-------------|---------|
-| `resource_group_name` | Name of the Resource Group where AKS is deployed | `thesisRG` |
-| `location` | Azure region for the AKS cluster | `West Europe` |
 | `aks_cluster_name` | Name of the AKS cluster | `thesis-aks` |
-| `subnet_id` | Subnet ID where AKS nodes will be deployed | **(Required - Provided by Virtual Network Module)** |
+| `location` | Azure region | `West Europe` |
+| `resource_group_name` | Name of the RG where AKS will be deployed | `thesisRG` |
+| `subnet_id` | Subnet in which the AKS nodes are deployed | `/subscriptions/.../subnets/thesis-subnet` |
 
-## Outputs
+## 📤 Outputs
 | Output | Description |
 |--------|-------------|
-| `aks_name` | The name of the AKS cluster |
-| `aks_kube_config` | Kube config to connect to the AKS cluster (**Sensitive**) |
+| `aks_name` | Name of the deployed AKS cluster |
+| `aks_kube_config` | Kube config (sensitive) for `kubectl` access |
 
-## Deployment Steps
-### 1. Deploy the Virtual Network
-If not already deployed, first deploy the **Virtual Network and Subnet**:
-```sh
-cd ~/THESIS/ThesisDemo/INFRA/VirtualNetwork
-terraform apply
-```
-
-### 2. Deploy the AKS Cluster
-```sh
-cd ~/THESIS/ThesisDemo/INFRA
-terraform apply -var="subnet_id=$(terraform output -raw subnet_id)"
-```
-
-### 3. Verify the Deployment
-After deployment, configure `kubectl` to interact with the AKS cluster:
-```sh
-terraform output aks_kube_config > ~/.kube/config
-kubectl get nodes
-```
-
-## Notes
-- The AKS cluster is deployed inside an **existing Virtual Network**.
-- The **node pool** uses **Standard_D2s_v3** VM size by default.
-- Azure CNI is enabled for **advanced networking features**.
-
-## Future Enhancements
-- Implement **auto-scaling** for the node pool.
-- Configure **Azure Load Balancer** or **Ingress Controller**.
-- Integrate **Azure Container Registry (ACR)** for private container images.
-
-🚀 This setup ensures a **secure, scalable, and production-ready AKS cluster!**
+## 🚀 How to Deploy
+```bash
+cd INFRA/AKS
+terraform init
+terraform apply -var="subnet_id=..." -auto-approve

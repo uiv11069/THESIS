@@ -1,21 +1,40 @@
-# Virtual Network Module
 
-This module defines a Virtual Network and a Subnet in Azure.
+---
 
-## Resources Created
-1. Virtual Network (`azurerm_virtual_network`)
-2. Subnet (`azurerm_subnet`)
+### 📁 **Virtual Network – `INFRA/VirtualNetwork/readme.md`**
+```markdown
+# Azure Virtual Network Module
 
-## Inputs
-- `resource_group_name`: Name of the Resource Group.
-- `location`: Azure region (default: `West Europe`).
-- `vnet_name`: Name of the Virtual Network (default: `thesis-vnet`).
-- `address_space`: IP range for the Virtual Network (default: `10.0.0.0/16`).
-- `subnet_name`: Name of the Subnet (default: `thesis-subnet`).
-- `subnet_address_prefixes`: IP range for the Subnet (default: `10.0.1.0/24`).
+This module deploys a VNet and two subnets:
+- One for general use (e.g., AKS, VMs)
+- One delegated to App Service
 
-## Outputs
-- `vnet_name`: Name of the Virtual Network.
-- `vnet_id`: ID of the Virtual Network.
-- `subnet_name`: Name of the Subnet.
-- `subnet_id`: ID of the Subnet.
+## 🧱 Resources Deployed
+- Resource Group
+- Virtual Network
+- Subnet (main)
+- Subnet (AppService) with delegation
+
+## 📥 Inputs
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `resource_group_name` | RG for VNet | `thesisRG` |
+| `location` | Azure region | `westeurope` |
+| `vnet_name` | Name of the VNet | `thesis-vnet` |
+| `address_space` | Address space | `["10.0.0.0/16"]` |
+| `subnet_name` | Name for AKS/VM subnet | `thesis-subnet` |
+| `subnet_address_prefixes` | Prefixes | `["10.0.1.0/24"]` |
+| `environment` | Tag | `dev` |
+
+## 📤 Outputs
+| Output | Description |
+|--------|-------------|
+| `vnet_id` | ID of the virtual network |
+| `subnet_id` | ID of main subnet |
+| `appservice_subnet_id` | ID of the delegated subnet |
+
+## 🚀 How to Deploy
+```bash
+cd INFRA/VirtualNetwork
+terraform init
+terraform apply -auto-approve

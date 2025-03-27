@@ -1,11 +1,27 @@
-# Virtual Machine Configuration
+# Azure Virtual Machine (Linux) Module
 
-This directory contains the Terraform configuration for creating a virtual machine.
+This module provisions a minimal-cost Ubuntu Virtual Machine inside an existing Virtual Network. It is intended for development or testing use cases and is integrated with a static private IP.
 
-## Included Resources:
-- Virtual Machine (VM) with Ubuntu Server.
-- Network interface attached to a virtual network and public IP.
-- SSH access configuration.
+## 🧱 Resources Deployed
+- Network Interface (NIC) with Static IP
+- Linux Virtual Machine (Ubuntu 18.04 LTS)
+- OS Disk and SSH Key-based Authentication
 
-## Files:
-- `main.tf`: Terraform configuration file.
+## 📥 Inputs
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `resource_group_name` | Name of the Resource Group | `thesisRG` |
+| `location` | Azure region | `West Europe` |
+| `subnet_id` | Subnet ID from the Virtual Network module | `/subscriptions/.../subnets/thesis-subnet` |
+
+## 📤 Outputs
+| Output | Description |
+|--------|-------------|
+| `vm_name` | Name of the VM |
+| `vm_private_ip` | Static private IP assigned to the VM |
+
+## 🚀 How to Deploy
+```bash
+cd INFRA/VM
+terraform init
+terraform apply -auto-approve

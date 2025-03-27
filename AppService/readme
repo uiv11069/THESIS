@@ -1,25 +1,32 @@
-# App Service Module
 
-This module deploys an **Azure App Service** with **VNet integration**.
+---
 
-## Resources Created
-1. **App Service Plan** (Basic B1)
-2. **App Service** (Linux-based, runs a Docker container)
-3. **VNet Integration** (Uses existing VNet)
+### 📁 **AppService – `INFRA/AppService/readme.md`**
+```markdown
+# Azure App Service Module
 
-## Inputs
-- `resource_group_name` → Name of the Resource Group.
-- `location` → Azure region.
-- `app_name` → Name of the App Service.
-- `subnet_id` → **Subnet ID from Virtual Network**.
+This module provisions a Linux App Service and connects it to an existing virtual network for secure access.
 
-## Outputs
-- `app_service_name` → Name of the App Service.
-- `app_service_url` → Default URL of the App Service.
+## 🧱 Resources Deployed
+- App Service Plan (`B1`, Linux)
+- Web App running custom Docker image
+- Swift VNet Integration for private access
 
-## Deployment
-Run the following commands:
+## 📥 Inputs
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `app_name` | Name of the App Service | `thesis-appservice` |
+| `resource_group_name` | RG where App Service is deployed | `thesisRG` |
+| `location` | Azure region | `westeurope` |
+| `subnet_id` | Subnet ID for VNet integration | `/subscriptions/.../subnets/thesis-appservice-subnet` |
+
+## 📤 Outputs
+| Output | Description |
+|--------|-------------|
+| `app_service_url` | The URL of the deployed App Service |
+
+## 🚀 How to Deploy
 ```bash
-cd AppService
+cd INFRA/AppService
 terraform init
-terraform apply -var="subnet_id=<PASTE_SUBNET_ID_HERE>"
+terraform apply -var="subnet_id=..." -auto-approve

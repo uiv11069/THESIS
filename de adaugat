@@ -1,0 +1,20 @@
+<!-- sa ma intrebe ce nume vreau la variabile
+
+descriere ca text sau diagrama  diagrama -->identificare elemente -->generare terragrunt
+
+variabilele pot fi numite din descriere
+
+image recognition azure github
+
+https://github.com/marketplace/models
+
+https://huggingface.co/models -->
+
+
+am incercat cu freetex dar uneori da rateuri, dupa care a trebiut sa iau in considerare faptul ca aceasta aplicatie va fi utilizata de pers care nu au atat de multa experienta cu terraform si terragrunt
+
+Nevoie: tool care sa genereze cod de INFRASTRUCTURA cloud care sa creeze serviciile cloud
+
+https://azure.microsoft.com/en-us/pricing/details/cognitive-services/computer-vision/
+
+https://learn.microsoft.com/en-us/azure/ai-services/computer-vision/

@@ -1,0 +1,57 @@
+# Azure Kubernetes Service (AKS) Deployment
+
+## Overview
+This module deploys an **Azure Kubernetes Service (AKS) cluster** inside an existing **Virtual Network (VNet)**. It ensures that the cluster is securely integrated with the infrastructure, allowing seamless networking and scaling.
+
+## Resources Created
+- **Azure Kubernetes Service (AKS)**
+- **Default Node Pool** with configurable VM size and node count
+- **System Assigned Identity** for secure access
+- **Azure CNI Networking**
+
+## Inputs
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `resource_group_name` | Name of the Resource Group where AKS is deployed | `thesisRG` |
+| `location` | Azure region for the AKS cluster | `West Europe` |
+| `aks_cluster_name` | Name of the AKS cluster | `thesis-aks` |
+| `subnet_id` | Subnet ID where AKS nodes will be deployed | **(Required - Provided by Virtual Network Module)** |
+
+## Outputs
+| Output | Description |
+|--------|-------------|
+| `aks_name` | The name of the AKS cluster |
+| `aks_kube_config` | Kube config to connect to the AKS cluster (**Sensitive**) |
+
+## Deployment Steps
+### 1. Deploy the Virtual Network
+If not already deployed, first deploy the **Virtual Network and Subnet**:
+```sh
+cd ~/THESIS/ThesisDemo/INFRA/VirtualNetwork
+terraform apply
+```
+
+### 2. Deploy the AKS Cluster
+```sh
+cd ~/THESIS/ThesisDemo/INFRA
+terraform apply -var="subnet_id=$(terraform output -raw subnet_id)"
+```
+
+### 3. Verify the Deployment
+After deployment, configure `kubectl` to interact with the AKS cluster:
+```sh
+terraform output aks_kube_config > ~/.kube/config
+kubectl get nodes
+```
+
+## Notes
+- The AKS cluster is deployed inside an **existing Virtual Network**.
+- The **node pool** uses **Standard_D2s_v3** VM size by default.
+- Azure CNI is enabled for **advanced networking features**.
+
+## Future Enhancements
+- Implement **auto-scaling** for the node pool.
+- Configure **Azure Load Balancer** or **Ingress Controller**.
+- Integrate **Azure Container Registry (ACR)** for private container images.
+
+🚀 This setup ensures a **secure, scalable, and production-ready AKS cluster!**

@@ -1,0 +1,25 @@
+# Azure Container Registry (ACR) Module
+
+This Terraform module creates an Azure Container Registry (ACR) in the specified resource group.
+
+## Resources Created
+- Azure Resource Group
+- Azure Container Registry (ACR)
+
+## Variables
+- `resource_group_name`: Name of the resource group for the ACR
+- `location`: Azure region
+- `acr_name`: Name of the Azure Container Registry (must be globally unique)
+- `acr_sku`: SKU for the ACR (Basic, Standard, Premium)
+
+## Outputs
+- `acr_name`: The name of the Azure Container Registry
+- `acr_login_server`: The login server of the ACR
+- `acr_admin_username`: The admin username for the ACR
+- `acr_admin_password`: The admin password for the ACR (sensitive)
+
+## Example Usage
+```bash
+terraform init
+terraform plan
+terraform apply

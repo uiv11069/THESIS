@@ -6,8 +6,7 @@ import hcl2
 
 # === CONFIG ===
 INFRA_PATH = Path.cwd()
-
-
+API_KEY = os.getenv("OPENAI_API_KEY") or "your_hardcoded key"
 OUTPUT_PATH = INFRA_PATH / "terragrunt.hcl"
 openai_client = OpenAI(api_key=API_KEY)
 

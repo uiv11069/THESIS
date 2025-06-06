@@ -1,0 +1,71 @@
+# Terragrunt Generator from Terraform Modules
+
+This project is a **Python console application** that automates the generation of a centralized `terragrunt.hcl` configuration file based on existing **Terraform modules** and user input.
+
+## 🔍 Purpose
+
+Managing complex Terraform configurations across multiple modules can become repetitive and error-prone. This tool eliminates the need to manually write Terragrunt files by leveraging **OpenAI GPT-4o** to:
+
+- Scan all available Terraform modules (directories containing `main.tf`);
+- Parse all `variables.tf` files;
+- Prompt the user to input or confirm values for each variable;
+- Automatically prefix variable names in `inputs` with the module name (to prevent collisions);
+- Generate a single, clean, centralized `terragrunt.hcl` file with `dependency` blocks for each selected module.
+
+## 🧠 How It Works
+
+1. The script scans the current folder and lists all Terraform modules.
+2. The user selects one or more modules from the list.
+3. For each module, the script:
+   - Parses `variables.tf`
+   - Displays the description and default (if any) for each variable
+   - Asks the user for input (defaults can be accepted by pressing `Enter`)
+4. The collected input is sent to the OpenAI API to generate valid HCL configuration.
+5. A unified `terragrunt.hcl` file is written at the root of the project.
+
+Example structure:
+
+```hcl
+dependency "AppService" {
+  config_path = "${path_relative_from_include()}/AppService"
+}
+
+dependency "ContainerApp" {
+  config_path = "${path_relative_from_include()}/ContainerApp"
+}
+
+inputs = {
+  appservice_resource_group_name   = "prod-rg"
+  appservice_location              = "westeurope"
+  containerapp_app_name            = "my-app"
+  containerapp_resource_group_name = "prod-rg"
+}
+
+
+📦 Requirements
+Python 3.10+
+
+OpenAI API key (set via the OPENAI_API_KEY environment variable)
+
+Dependencies:
+
+openai
+
+hcl2
+
+Install via pip:
+    pip install openai hcl2 --break-system-packages
+    
+🚀 Run the Tool
+    python3 main.py
+
+    
+💡 Notes
+This project assumes your Terraform modules are structured as individual folders inside the root.
+
+Variable names in the generated inputs block are prefixed with the module name to avoid name collisions across modules.
+
+The resulting terragrunt.hcl is designed to be used in a root module that delegates logic to child modules via dependency blocks.
+
+✅ Status
+This tool is fully functional and has been tested with real Terraform modules targeting Azure. It is suitable for teams looking to streamline their infrastructure-as-code workflows with Terragrunt.

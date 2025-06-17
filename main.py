@@ -3,10 +3,12 @@ import re
 import os
 from openai import OpenAI
 import hcl2
+from validators import is_valid_default_value
+
 
 # === CONFIG ===
 INFRA_PATH = Path.cwd()
-API_KEY = os.getenv("OPENAI_API_KEY") or "your_hardcoded key"
+API_KEY = os.getenv("OPENAI_API_KEY") or "your-API-key"
 OUTPUT_PATH = INFRA_PATH / "terragrunt.hcl"
 openai_client = OpenAI(api_key=API_KEY)
 
@@ -28,8 +30,59 @@ def parse_variables_tf(variables_tf_path):
                     "name": name,
                     "description": props.get("description", ""),
                     "default": props.get("default", None),
+                    "type": props.get("type", "string")
                 })
     return variables
+
+# def is_valid_default_value(variable_name: str, variable_type: str, default_value) -> bool:
+#     variable_type = variable_type.strip().lower()
+
+#     if variable_type == "string":
+#         if not isinstance(default_value, str):
+#             return False
+#         if default_value.strip() == "":
+#             return False
+#         if default_value != default_value.strip():
+#             return False
+
+#         var_name = variable_name.lower()
+
+#         # ✅ Allow anything for password, secret
+#         if "password" in var_name or "secret" in var_name:
+#             return True
+
+#         # ✅ Allow anything for Azure IDs (like subnet_id, vnet_id, etc.)
+#         if "id" in var_name and not any(x in var_name for x in ["storage", "account", "name"]):
+#             return True
+
+#         # ✅ Allow anything for location
+#         if "location" in var_name:
+#             return True
+
+#         # ❌ Restrictive rules for other strings
+#         if re.search(r'[^a-zA-Z0-9\-_ ]', default_value):
+#             return False
+#         if default_value.startswith("-") or default_value.endswith("-"):
+#             return False
+#         if "storage" in var_name or "account" in var_name:
+#             if "-" in default_value:
+#                 return False
+#             if not default_value.islower():
+#                 return False
+#         return True
+
+#     elif variable_type == "number":
+#         try:
+#             float(default_value)
+#             return True
+#         except ValueError:
+#             return False
+
+#     elif variable_type == "bool":
+#         return str(default_value).lower() in ("true", "false")
+
+#     return False
+
 
 def collect_user_inputs(modules):
     collected = {}
@@ -38,19 +91,40 @@ def collect_user_inputs(modules):
         variables = parse_variables_tf(module / "variables.tf")
         mod_inputs = {}
         for var in variables:
+            default_valid = (
+                var["default"] is not None and
+                is_valid_default_value(var["name"], var["type"], var["default"])
+            )
+
             prompt_text = f"{var['name']} ({var['description']})"
-            if var["default"] is not None:
+            if default_valid:
                 prompt_text += f" [default: {var['default']}]"
             prompt_text += ": "
+
             val = input(prompt_text).strip()
-            if val == "" and var["default"] is not None:
-                mod_inputs[var["name"]] = var["default"]
-            elif val == "" and var["default"] is None:
-                print(f"⚠️  {var['name']} has no default. Please enter a value.")
-                val = input(f"{var['name']}: ").strip()
-                mod_inputs[var["name"]] = val
+
+            if val == "":
+                if default_valid:
+                    mod_inputs[var["name"]] = var["default"]
+                else:
+                    print(f"❌ The default value '{var['default']}' is not valid for {var['name']}.")
+                    while True:
+                        val = input(f"Please enter a valid value for {var['name']}: ").strip()
+                        if is_valid_default_value(var["name"], var["type"], val):
+                            mod_inputs[var["name"]] = val
+                            break
+                        else:
+                            print("❌ Invalid value. Please try again.")
             else:
-                mod_inputs[var["name"]] = val
+                if is_valid_default_value(var["name"], var["type"], val):
+                    mod_inputs[var["name"]] = val
+                else:
+                    print("❌ Invalid value.")
+                    while True:
+                        val = input(f"Please enter a valid value for {var['name']}: ").strip()
+                        if is_valid_default_value(var["name"], var["type"], val):
+                            mod_inputs[var["name"]] = val
+                            break
         collected[module.name] = mod_inputs
     return collected
 

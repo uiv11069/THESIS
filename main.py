@@ -3,16 +3,13 @@ import re
 import os
 from openai import OpenAI
 import hcl2
-from validators import is_valid_default_value
-
+from validators import is_valid_default_value, is_valid_remote_state_value
 
 # === CONFIG ===
 INFRA_PATH = Path.cwd()
-API_KEY = os.getenv("OPENAI_API_KEY") or "your-API-key"
-OUTPUT_PATH = INFRA_PATH / "terragrunt.hcl"
+API_KEY = os.getenv("OPENAI_API_KEY") or "your key"
+OUTPUT_PATH = INFRA_PATH / "root.hcl"
 openai_client = OpenAI(api_key=API_KEY)
-
-# === UTILS ===
 
 def get_available_modules():
     return sorted([
@@ -33,56 +30,6 @@ def parse_variables_tf(variables_tf_path):
                     "type": props.get("type", "string")
                 })
     return variables
-
-# def is_valid_default_value(variable_name: str, variable_type: str, default_value) -> bool:
-#     variable_type = variable_type.strip().lower()
-
-#     if variable_type == "string":
-#         if not isinstance(default_value, str):
-#             return False
-#         if default_value.strip() == "":
-#             return False
-#         if default_value != default_value.strip():
-#             return False
-
-#         var_name = variable_name.lower()
-
-#         # ✅ Allow anything for password, secret
-#         if "password" in var_name or "secret" in var_name:
-#             return True
-
-#         # ✅ Allow anything for Azure IDs (like subnet_id, vnet_id, etc.)
-#         if "id" in var_name and not any(x in var_name for x in ["storage", "account", "name"]):
-#             return True
-
-#         # ✅ Allow anything for location
-#         if "location" in var_name:
-#             return True
-
-#         # ❌ Restrictive rules for other strings
-#         if re.search(r'[^a-zA-Z0-9\-_ ]', default_value):
-#             return False
-#         if default_value.startswith("-") or default_value.endswith("-"):
-#             return False
-#         if "storage" in var_name or "account" in var_name:
-#             if "-" in default_value:
-#                 return False
-#             if not default_value.islower():
-#                 return False
-#         return True
-
-#     elif variable_type == "number":
-#         try:
-#             float(default_value)
-#             return True
-#         except ValueError:
-#             return False
-
-#     elif variable_type == "bool":
-#         return str(default_value).lower() in ("true", "false")
-
-#     return False
-
 
 def collect_user_inputs(modules):
     collected = {}
@@ -154,39 +101,95 @@ dependency "{module.name}" {{
 '''
     return blocks
 
-def query_openai_for_terragrunt(modules, inputs):
-    dependencies_block = format_dependencies(modules)
+def collect_remote_state_inputs():
+    print("\n🔒 Set remote_state backend values for Azure storage (leave empty for default):")
+    while True:
+        resource_group_name = input("Resource group name [default: thesisRG]: ").strip() or "thesisRG"
+        if is_valid_remote_state_value("resource_group_name", resource_group_name):
+            break
+        print("❌ Invalid resource group name. Must be 1-90 chars, alphanum/-/_ (not starting/ending with dash).")
+    while True:
+        storage_account_name = input("Storage account name [default: thesisstorage]: ").strip() or "thesisstorage"
+        if is_valid_remote_state_value("storage_account_name", storage_account_name):
+            break
+        print("❌ Invalid storage account name. Must be 3-24 chars, only lowercase letters and numbers.")
+    while True:
+        container_name = input("Container name [default: tfstate]: ").strip() or "tfstate"
+        if is_valid_remote_state_value("container_name", container_name):
+            break
+        print("❌ Invalid container name. Must be 3-63 chars, lowercase, numbers, dash, not start/end with dash or contain double dash.")
+    key = input("State file key [default: terragrunt.tfstate]: ").strip() or "terragrunt.tfstate"
+    return resource_group_name, storage_account_name, container_name, key
+
+def get_remote_state_block(resource_group, storage_account, container, key):
+    return f'''
+remote_state {{
+  backend = "azurerm"
+  config = {{
+    resource_group_name  = "{resource_group}"
+    storage_account_name = "{storage_account}"
+    container_name       = "{container}"
+    key                  = "{key}"
+  }}
+}}
+'''
+
+def clean_code_fences(hcl_str):
+    # Elimină orice block de tip ``` sau ```hcl de la început/sfârșit
+    cleaned = re.sub(r"^```(?:hcl)?\s*", "", hcl_str.strip())
+    cleaned = re.sub(r"\s*```$", "", cleaned)
+    return cleaned.strip()
+
+def query_openai_for_terragrunt(modules, inputs, remote_state_block):
+    dependencies_block = format_dependencies(modules) if len(modules) > 1 else ""
     inputs_block = format_prefixed_inputs(modules, inputs)
 
     prompt = f"""
 You are a Terraform and Terragrunt expert.
 
-Generate a single `terragrunt.hcl` file that:
+Your task:
+Generate the **complete content** for a file named **root.hcl** to be used as the root configuration in a Terragrunt project on Azure.
 
-- Includes dependency blocks for each module listed below
-- Includes a single global `inputs` block containing all the inputs for these modules
-- All variable names must be prefixed with the module name (lowercase), e.g., 'db_location'
-- The infrastructure is deployed on Azure
-- All values must be quoted properly
-- Do NOT include triple backticks or explanations
-- Only return valid HCL
+IMPORTANT:
+- The file MUST be named root.hcl (not terragrunt.hcl).
+- If ONLY ONE module is selected, do NOT add ANY dependency block in the file.
+- If TWO OR MORE modules are selected, add one dependency block for EACH selected module, but NEVER create a dependency block that points to the root.hcl itself or to a dependency with the same name as the module (NO cycles, NO self-dependency).
+- Each submodule has only an include block pointing to root.hcl, nothing else.
+- The first block in the file must ALWAYS be the remote_state block provided below, unmodified.
+- After remote_state, add all dependency blocks (if any).
+- Then add a single global inputs block containing all variables, prefixed with the module name in lowercase (e.g., db_location).
+- Quote ALL string values with double quotes.
+- The generated HCL MUST be valid and complete.
+- **Return ONLY raw HCL code. DO NOT return code fences, backticks, comments, explanations, or any extra text.**
+- UNDER NO CIRCUMSTANCES should you output any code fences, backticks, markdown, or explanations.
 
-Return only the content of the terragrunt.hcl file without code fences (no ```hcl), comments, or explanations. Just raw HCL.
+EXAMPLES:
+If you select only "AKS", the file contains only remote_state and inputs.
+If you select "AKS" and "DB", the file contains remote_state, dependency "AKS", dependency "DB", and then inputs.
 
-Dependencies:
-{dependencies_block}
+Use these blocks:
 
-Inputs:
+remote_state:
+{remote_state_block}
+
+{f"dependencies:\n{dependencies_block}" if dependencies_block else ""}
+
+inputs:
 {inputs_block}
+
+Return only the fully assembled, ready-to-use root.hcl file content.
 """
 
     response = openai_client.chat.completions.create(
         model="gpt-4o",
         messages=[{"role": "user", "content": prompt}],
         temperature=0.1,
-        max_tokens=1500
+        max_tokens=1800
     )
-    return response.choices[0].message.content
+    hcl_content = response.choices[0].message.content
+    # Clean up any code fences
+    hcl_content = clean_code_fences(hcl_content)
+    return hcl_content
 
 def validate_hcl(hcl_text):
     try:
@@ -212,15 +215,20 @@ def main():
 
     user_inputs = collect_user_inputs(selected)
 
+    # Collect remote_state info (Azure backend) with validation
+    resource_group, storage_account, container, key = collect_remote_state_inputs()
+    remote_state_block = get_remote_state_block(resource_group, storage_account, container, key)
+
     print("\n⏳ Sending prompt to OpenAI...")
-    terragrunt_hcl = query_openai_for_terragrunt(selected, user_inputs)
+    terragrunt_hcl = query_openai_for_terragrunt(selected, user_inputs, remote_state_block)
+    print("DEBUG: OpenAI response:\n", terragrunt_hcl)
     print("✅ Response received.")
 
     if validate_hcl(terragrunt_hcl):
         OUTPUT_PATH.write_text(terragrunt_hcl)
-        print(f"✅ terragrunt.hcl written to: {OUTPUT_PATH}")
+        print(f"✅ root.hcl written to: {OUTPUT_PATH}")
     else:
-        print("❌ terragrunt.hcl was not saved due to validation failure.")
+        print("❌ root.hcl was not saved due to validation failure.")
 
 # === RUN ===
 if __name__ == "__main__":

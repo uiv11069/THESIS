@@ -1,5 +1,31 @@
 import re
 
+def is_valid_remote_state_value(field, value):
+    # Storage Account Name: 3-24 chars, lowercase letters and numbers only
+    if field == "storage_account_name":
+        if not re.match(r'^[a-z0-9]{3,24}$', value):
+            return False
+        return True
+    # Resource Group Name: 1-90 chars, alfanumeric, -, _ (nu începe/termină cu -)
+    if field == "resource_group_name":
+        if not re.match(r'^[a-zA-Z0-9-_]{1,90}$', value):
+            return False
+        if value.startswith('-') or value.endswith('-'):
+            return False
+        if value.isdigit():
+            return False
+        return True
+    # Container Name: 3-63 chars, lowercase, numbers, dash (nu începe/termină cu dash, nu dublu dash)
+    if field == "container_name":
+        if not re.match(r'^[a-z0-9-]{3,63}$', value):
+            return False
+        if value.startswith('-') or value.endswith('-'):
+            return False
+        if '--' in value:
+            return False
+        return True
+    return False
+
 def is_valid_default_value(variable_name: str, variable_type: str, default_value) -> bool:
     variable_type = variable_type.strip().lower()
     var_name = variable_name.lower()

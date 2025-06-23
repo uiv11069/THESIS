@@ -14,6 +14,4 @@ resource "azurerm_storage_account" "storage_account" {
   location                 = azurerm_resource_group.storage_rg.location
   account_tier             = var.account_tier
   account_replication_type = var.account_replication_type
-
-  tags = var.tags
 }

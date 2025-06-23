@@ -7,7 +7,7 @@ from validators import is_valid_default_value, is_valid_remote_state_value
 
 # === CONFIG ===
 INFRA_PATH = Path.cwd()
-API_KEY = os.getenv("OPENAI_API_KEY") or "your key"
+API_KEY = os.getenv("OPENAI_API_KEY") or ""
 OUTPUT_PATH = INFRA_PATH / "root.hcl"
 openai_client = OpenAI(api_key=API_KEY)
 
@@ -141,43 +141,41 @@ def clean_code_fences(hcl_str):
     return cleaned.strip()
 
 def query_openai_for_terragrunt(modules, inputs, remote_state_block):
-    dependencies_block = format_dependencies(modules) if len(modules) > 1 else ""
+    # Detectăm dacă avem un singur modul
+    single_module = len(modules) == 1
     inputs_block = format_prefixed_inputs(modules, inputs)
+    dependencies_block = format_dependencies(modules) if len(modules) > 1 else ""
 
+    # Numim explicit ce vrem, pe scurt și la obiect:
     prompt = f"""
 You are a Terraform and Terragrunt expert.
 
 Your task:
-Generate the **complete content** for a file named **root.hcl** to be used as the root configuration in a Terragrunt project on Azure.
+Generate the **complete content** for a file named **root.hcl** to be used as the root Terragrunt configuration for my infrastructure, running on Azure.
 
-IMPORTANT:
-- The file MUST be named root.hcl (not terragrunt.hcl).
-- If ONLY ONE module is selected, do NOT add ANY dependency block in the file.
-- If TWO OR MORE modules are selected, add one dependency block for EACH selected module, but NEVER create a dependency block that points to the root.hcl itself or to a dependency with the same name as the module (NO cycles, NO self-dependency).
-- Each submodule has only an include block pointing to root.hcl, nothing else.
-- The first block in the file must ALWAYS be the remote_state block provided below, unmodified.
-- After remote_state, add all dependency blocks (if any).
-- Then add a single global inputs block containing all variables, prefixed with the module name in lowercase (e.g., db_location).
+Rules:
+- The file name must be **root.hcl**.
+- The first block in the file must always be the remote_state block below (no changes).
+- If there is only one module, do NOT add any dependency block.
+- If there are two or more modules, add one dependency block for EACH selected module, but NEVER point a dependency block to root.hcl or to the module itself.
+- After remote_state (and dependencies, if any), add a single global inputs block containing all variables, each prefixed with the module name (lowercase).
 - Quote ALL string values with double quotes.
-- The generated HCL MUST be valid and complete.
+- The generated HCL must be valid, ready to use and complete.
 - **Return ONLY raw HCL code. DO NOT return code fences, backticks, comments, explanations, or any extra text.**
-- UNDER NO CIRCUMSTANCES should you output any code fences, backticks, markdown, or explanations.
+- List values (e.g., `["10.0.0.0/16"]`) must appear as valid HCL lists, not strings that look like lists.
+Context:
+- Selected module(s): {', '.join([m.name for m in modules])}
+- remote_state block:
 
-EXAMPLES:
-If you select only "AKS", the file contains only remote_state and inputs.
-If you select "AKS" and "DB", the file contains remote_state, dependency "AKS", dependency "DB", and then inputs.
-
-Use these blocks:
-
-remote_state:
 {remote_state_block}
 
-{f"dependencies:\n{dependencies_block}" if dependencies_block else ""}
+{f"{dependencies_block}" if dependencies_block else ""}
 
-inputs:
+inputs block:
+
 {inputs_block}
 
-Return only the fully assembled, ready-to-use root.hcl file content.
+Remember: Do NOT include any dependency block if there is only one module. The output must be production-ready and valid.
 """
 
     response = openai_client.chat.completions.create(
@@ -187,9 +185,9 @@ Return only the fully assembled, ready-to-use root.hcl file content.
         max_tokens=1800
     )
     hcl_content = response.choices[0].message.content
-    # Clean up any code fences
     hcl_content = clean_code_fences(hcl_content)
     return hcl_content
+
 
 def validate_hcl(hcl_text):
     try:

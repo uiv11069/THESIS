@@ -28,10 +28,3 @@ variable "account_replication_type" {
   default     = "LRS"
 }
 
-variable "tags" {
-  description = "A map of tags to associate with the resource"
-  type        = map(string)
-  default     = {
-    environment = "dev"
-  }
-}

@@ -7,7 +7,7 @@ from validators import is_valid_default_value, is_valid_remote_state_value
 
 # === CONFIG ===
 INFRA_PATH = Path.cwd()
-API_KEY = os.getenv("OPENAI_API_KEY") or ""
+API_KEY = os.getenv("OPENAI_API_KEY") or "APIkey"
 OUTPUT_PATH = INFRA_PATH / "root.hcl"
 openai_client = OpenAI(api_key=API_KEY)
 

@@ -9,10 +9,10 @@ generate "backend" {
 terraform {
   backend "azurerm" {
     resource_group_name  = "terragrunt"
-    storage_account_name = "terragrunt2025thesis"
+    storage_account_name = "terragrunt2025test"
     container_name       = "tfstate"
     key                  = "terragrunt.tfstate"
-    access_key  ="storage_key"
+    access_key  ="my_access_key"
   }
 }
 EOF
@@ -22,39 +22,26 @@ EOF
 generate "provider" {
   path      = "provider.tf"
   if_exists = "overwrite_terragrunt"
-  contents = <<EOF
+  contents  = <<EOF
 terraform {
+  required_version = ">= 1.0"
   required_providers {
     azurerm = {
       source  = "hashicorp/azurerm"
       version = "~> 4.34.0"
     }
-    random = {
-      source  = "hashicorp/random"
-      version = "~> 3.5.1"
-    }
-    tls = {
-      source  = "hashicorp/tls"
-      version = "~> 4.0"
-    }
   }
 }
+
  
 provider "azurerm" {
   features {}
-  subscription_id = "da9a301e-7a82-4e73-abb1-e28a503a0adf"
+  subscription_id = "subscription_id"
 }
 EOF
 }
 
  
-# Definești doar dependințele pentru ordinea de execuție (fără outputs)
-dependencies {
-  paths = [
-    "modules/StorageAccount",
-    "modules/VirtualNetwork"
-  ]
-}
 
 
 

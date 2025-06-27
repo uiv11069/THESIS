@@ -12,7 +12,7 @@ terraform {
     storage_account_name = "terragrunt2025test"
     container_name       = "tfstate"
     key                  = "terragrunt.tfstate"
-    access_key  ="ahrMqc8UgDAx7wTEzS2bnpt6ZTnZenfngExPQeP3EB5d5VBScNk1+UxPZSJAQMnxlEzM7mR8Nnie+AStmpDVEw=="
+    access_key  =""
   }
 }
 EOF
@@ -36,7 +36,7 @@ terraform {
  
 provider "azurerm" {
   features {}
-  subscription_id = "614cc79c-4ad7-4053-8860-ff970c4a1783"
+  subscription_id = ""
 }
 EOF
 }

@@ -1,9 +1,6 @@
-# Application Url : Ingress disabled  IS THAT A PROBLEM?
-
-
 resource "azurerm_resource_group" "container_rg" {
-  name     = var.resource_group_name
-  location = var.location
+  name     = var.ContainerApp_resource_group_name
+  location = var.ContainerApp_location
 }
 
 resource "azurerm_container_app_environment" "app_env" {
@@ -13,8 +10,8 @@ resource "azurerm_container_app_environment" "app_env" {
 }
 
 resource "azurerm_container_app" "minimal_app" {
-  name                           = var.app_name
-  resource_group_name            = var.resource_group_name
+  name                           = var.ContainerApp_app_name
+  resource_group_name            = var.ContainerApp_resource_group_name
   container_app_environment_id   = azurerm_container_app_environment.app_env.id
   revision_mode                  = "Single"
 

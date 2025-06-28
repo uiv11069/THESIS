@@ -1,14 +1,16 @@
 from pathlib import Path
-import re
-import os
 from openai import OpenAI
+import os
+import re
 import hcl2
-from validators import is_valid_default_value, is_valid_remote_state_value
+import ast
+from variables import BACKEND_CONFIG
+from validators import is_valid_default_value
 
 # === CONFIG ===
 INFRA_PATH = Path.cwd()
-API_KEY = os.getenv("OPENAI_API_KEY") or "APIkey"
-OUTPUT_PATH = INFRA_PATH / "root.hcl"
+API_KEY = os.getenv("OPENAI_API_KEY") or ""
+OUTPUT_PATH = INFRA_PATH / "terragrunt.hcl"
 openai_client = OpenAI(api_key=API_KEY)
 
 def get_available_modules():
@@ -31,172 +33,170 @@ def parse_variables_tf(variables_tf_path):
                 })
     return variables
 
-def collect_user_inputs(modules):
+def collect_inputs_from_modules(modules):
     collected = {}
     for module in modules:
+        module_inputs = {}
+        variables_file = module / "variables.tf"
+        if not variables_file.exists():
+            print(f"⚠️ No variables.tf found for module: {module.name}")
+            continue
+
+        variables = parse_variables_tf(variables_file)
         print(f"\n📥 Variables for module: {module.name}")
-        variables = parse_variables_tf(module / "variables.tf")
-        mod_inputs = {}
+
         for var in variables:
-            default_valid = (
-                var["default"] is not None and
-                is_valid_default_value(var["name"], var["type"], var["default"])
-            )
+            var_name = var['name']
+            var_type = var['type']
+            default_val = var["default"]
 
-            prompt_text = f"{var['name']} ({var['description']})"
-            if default_valid:
-                prompt_text += f" [default: {var['default']}]"
-            prompt_text += ": "
+            if default_val is not None:
+                print(f"Default for {var_name}: {default_val}")
 
-            val = input(prompt_text).strip()
+            while True:
+                val = input(f"Enter value for {var_name} ({var['description']}) [ENTER to keep default]: ").strip()
 
-            if val == "":
-                if default_valid:
-                    mod_inputs[var["name"]] = var["default"]
-                else:
-                    print(f"❌ The default value '{var['default']}' is not valid for {var['name']}.")
-                    while True:
-                        val = input(f"Please enter a valid value for {var['name']}: ").strip()
-                        if is_valid_default_value(var["name"], var["type"], val):
-                            mod_inputs[var["name"]] = val
+                # Dacă userul apasă ENTER și avem default valid
+                if val == "" and default_val is not None:
+                    if is_valid_default_value(var_name, var_type, default_val):
+                        module_inputs[var_name] = default_val
+                        print(f"✅ Using default for {var_name}: {default_val}")
+                        break
+                    else:
+                        print(f"❌ Default for {var_name} is invalid for type {var_type}. Please enter manually.")
+
+                # Dacă userul introduce o valoare
+                elif val != "":
+                    if var_type == "number":
+                        try:
+                            module_inputs[var_name] = float(val)
+                            break
+                        except ValueError:
+                            print(f"❌ Invalid number for {var_name}. Try again.")
+                    elif var_type == "bool":
+                        if val.lower() in ["true", "false"]:
+                            module_inputs[var_name] = val.lower() == "true"
                             break
                         else:
-                            print("❌ Invalid value. Please try again.")
-            else:
-                if is_valid_default_value(var["name"], var["type"], val):
-                    mod_inputs[var["name"]] = val
-                else:
-                    print("❌ Invalid value.")
-                    while True:
-                        val = input(f"Please enter a valid value for {var['name']}: ").strip()
-                        if is_valid_default_value(var["name"], var["type"], val):
-                            mod_inputs[var["name"]] = val
+                            print(f"❌ Invalid boolean. Enter 'true' or 'false'.")
+                    elif var_type.startswith("list"):
+                        try:
+                            parsed_list = ast.literal_eval(val)
+                            if isinstance(parsed_list, list):
+                                module_inputs[var_name] = parsed_list
+                                break
+                            else:
+                                print(f"❌ Input is not a valid list. Example: ['item1', 'item2']")
+                        except Exception:
+                            print(f"❌ Invalid list syntax. Example: ['item1', 'item2']")
+                    else:  # String
+                        if is_valid_default_value(var_name, var_type, val):
+                            module_inputs[var_name] = val
                             break
-        collected[module.name] = mod_inputs
+                        else:
+                            print(f"❌ Invalid string for {var_name}. Cannot be empty or contain leading/trailing spaces.")
+
+                else:
+                    print(f"❌ Please enter a value for {var_name}. Cannot skip if no default exists.")
+
+        collected.update(module_inputs)
     return collected
 
-def format_prefixed_inputs(modules, inputs):
-    formatted = ""
-    for module in modules:
-        values = inputs[module.name]
-        mod_prefix = module.name.lower().replace(" ", "_")
-        for k, v in values.items():
-            key = f"{mod_prefix}_{k}"
-            if isinstance(v, dict):
-                formatted += f'  {key} = {{\n'
-                for dk, dv in v.items():
-                    formatted += f'    {dk} = "{dv}"\n'
-                formatted += f'  }}\n'
-            else:
-                formatted += f'  {key} = "{v}"\n'
-    return formatted
-
-def format_dependencies(modules):
-    blocks = ""
-    for module in modules:
-        blocks += f'''
-dependency "{module.name}" {{
-  config_path = "${{path_relative_from_include()}}/{module.name}"
-}}
-'''
-    return blocks
-
-def collect_remote_state_inputs():
-    print("\n🔒 Set remote_state backend values for Azure storage (leave empty for default):")
-    while True:
-        resource_group_name = input("Resource group name [default: thesisRG]: ").strip() or "thesisRG"
-        if is_valid_remote_state_value("resource_group_name", resource_group_name):
-            break
-        print("❌ Invalid resource group name. Must be 1-90 chars, alphanum/-/_ (not starting/ending with dash).")
-    while True:
-        storage_account_name = input("Storage account name [default: thesisstorage]: ").strip() or "thesisstorage"
-        if is_valid_remote_state_value("storage_account_name", storage_account_name):
-            break
-        print("❌ Invalid storage account name. Must be 3-24 chars, only lowercase letters and numbers.")
-    while True:
-        container_name = input("Container name [default: tfstate]: ").strip() or "tfstate"
-        if is_valid_remote_state_value("container_name", container_name):
-            break
-        print("❌ Invalid container name. Must be 3-63 chars, lowercase, numbers, dash, not start/end with dash or contain double dash.")
-    key = input("State file key [default: terragrunt.tfstate]: ").strip() or "terragrunt.tfstate"
-    return resource_group_name, storage_account_name, container_name, key
-
-def get_remote_state_block(resource_group, storage_account, container, key):
-    return f'''
-remote_state {{
-  backend = "azurerm"
-  config = {{
-    resource_group_name  = "{resource_group}"
-    storage_account_name = "{storage_account}"
-    container_name       = "{container}"
-    key                  = "{key}"
-  }}
-}}
-'''
-
 def clean_code_fences(hcl_str):
-    # Elimină orice block de tip ``` sau ```hcl de la început/sfârșit
     cleaned = re.sub(r"^```(?:hcl)?\s*", "", hcl_str.strip())
     cleaned = re.sub(r"\s*```$", "", cleaned)
     return cleaned.strip()
 
-def query_openai_for_terragrunt(modules, inputs, remote_state_block):
-    # Detectăm dacă avem un singur modul
-    single_module = len(modules) == 1
-    inputs_block = format_prefixed_inputs(modules, inputs)
-    dependencies_block = format_dependencies(modules) if len(modules) > 1 else ""
+def build_prompt(selected_modules, inputs_block):
+    backend_block = f'''
+generate "backend" {{
+  path      = "backend.tf"
+  if_exists = "overwrite_terragrunt"
+  contents = <<EOF
+terraform {{
+  backend "azurerm" {{
+    resource_group_name  = "{BACKEND_CONFIG['resource_group_name']}"
+    storage_account_name = "{BACKEND_CONFIG['storage_account_name']}"
+    container_name       = "{BACKEND_CONFIG['container_name']}"
+    key                  = "{BACKEND_CONFIG['key']}"
+    access_key  ="{BACKEND_CONFIG['access_key']}"
+  }}
+}}
+EOF
+}}
+'''
 
-    # Numim explicit ce vrem, pe scurt și la obiect:
+    provider_block = f'''
+generate "provider" {{
+  path      = "provider.tf"
+  if_exists = "overwrite_terragrunt"
+  contents  = <<EOF
+terraform {{
+  required_version = ">= 1.0"
+  required_providers {{
+    azurerm = {{
+      source  = "hashicorp/azurerm"
+      version = "~> 4.34.0"
+    }}
+  }}
+}}
+
+provider "azurerm" {{
+  features {{}}
+  subscription_id = "{BACKEND_CONFIG['subscription_id']}"
+}}
+EOF
+}}
+'''
+
+    module_names = ', '.join([m.name for m in selected_modules])
+
     prompt = f"""
 You are a Terraform and Terragrunt expert.
 
 Your task:
-Generate the **complete content** for a file named **root.hcl** to be used as the root Terragrunt configuration for my infrastructure, running on Azure.
+Generate the **full and final content** of a single file called `terragrunt.hcl` for my Azure infrastructure project.
 
-Rules:
-- The file name must be **root.hcl**.
-- The first block in the file must always be the remote_state block below (no changes).
-- If there is only one module, do NOT add any dependency block.
-- If there are two or more modules, add one dependency block for EACH selected module, but NEVER point a dependency block to root.hcl or to the module itself.
-- After remote_state (and dependencies, if any), add a single global inputs block containing all variables, each prefixed with the module name (lowercase).
-- Quote ALL string values with double quotes.
-- The generated HCL must be valid, ready to use and complete.
-- **Return ONLY raw HCL code. DO NOT return code fences, backticks, comments, explanations, or any extra text.**
-- List values (e.g., `["10.0.0.0/16"]`) must appear as valid HCL lists, not strings that look like lists.
-Context:
-- Selected module(s): {', '.join([m.name for m in modules])}
-- remote_state block:
+Sections (in exact order):
 
-{remote_state_block}
+1. ✅ Backend block  
+Use exactly the following block (no modifications allowed):
 
-{f"{dependencies_block}" if dependencies_block else ""}
+{backend_block}
 
-inputs block:
+2. ✅ Provider block  
+Include exactly this provider block (no modifications allowed):
+
+{provider_block}
+
+3. ✅ Inputs block  
+After the provider block, add a single inputs block with the following variables:
 
 {inputs_block}
 
-Remember: Do NOT include any dependency block if there is only one module. The output must be production-ready and valid.
+Rules for inputs block:
+- Keep variable names EXACTLY as given above.
+- Do NOT rename, reformat, or alter them.
+- Quote all string values with double quotes.
+- For lists, use correct HCL syntax (e.g., ["item1", "item2"]).
+- Do not add comments or explanations.
+- Output MUST be pure, production-ready HCL. No markdown, no code fences.
+
+Modules included: {module_names}
 """
 
-    response = openai_client.chat.completions.create(
-        model="gpt-4o",
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.1,
-        max_tokens=1800
-    )
-    hcl_content = response.choices[0].message.content
-    hcl_content = clean_code_fences(hcl_content)
-    return hcl_content
+    return prompt
 
-
-def validate_hcl(hcl_text):
-    try:
-        from io import StringIO
-        hcl2.load(StringIO(hcl_text))
-        return True
-    except Exception as e:
-        print(f"❌ Invalid HCL: {e}")
-        return False
+def format_inputs_block(inputs):
+    formatted = "inputs = {\n"
+    for key, val in inputs.items():
+        if isinstance(val, list):
+            list_items = ', '.join([f'"{item}"' for item in val])
+            formatted += f'  {key} = [{list_items}]\n'
+        else:
+            formatted += f'  {key} = "{val}"\n'
+    formatted += "}\n"
+    return formatted
 
 def main():
     modules = get_available_modules()
@@ -204,30 +204,48 @@ def main():
     for i, mod in enumerate(modules, 1):
         print(f"{i}. {mod.name}")
 
-    selection = input("\nWhich modules do you want Terragrunt generated for? (e.g., 1,3,5 or 'all'): ").strip()
-    if selection.lower() == "all":
-        selected = modules
-    else:
-        indices = [int(i.strip()) for i in selection.split(",") if i.strip().isdigit()]
-        selected = [modules[i - 1] for i in indices if 0 < i <= len(modules)]
+    while True:
+        selection = input("\n👉 Which modules do you want to include? (Type numbers separated by commas, or 'all' for all modules): ").strip()
+        if selection.lower() == "all":
+            selected = modules
+            break
+        else:
+            try:
+                indices = [int(i.strip()) for i in selection.split(",") if i.strip().isdigit()]
+                if all(0 < i <= len(modules) for i in indices):
+                    selected = [modules[i - 1] for i in indices]
+                    break
+                else:
+                    print("❌ Invalid selection. Please enter valid module numbers.")
+            except ValueError:
+                print("❌ Invalid input. Please enter numbers like 1,2,3 or 'all'.")
 
-    user_inputs = collect_user_inputs(selected)
+    user_inputs = collect_inputs_from_modules(selected)
+    inputs_block = format_inputs_block(user_inputs)
 
-    # Collect remote_state info (Azure backend) with validation
-    resource_group, storage_account, container, key = collect_remote_state_inputs()
-    remote_state_block = get_remote_state_block(resource_group, storage_account, container, key)
-
+    prompt = build_prompt(selected, inputs_block)
     print("\n⏳ Sending prompt to OpenAI...")
-    terragrunt_hcl = query_openai_for_terragrunt(selected, user_inputs, remote_state_block)
-    print("DEBUG: OpenAI response:\n", terragrunt_hcl)
-    print("✅ Response received.")
 
-    if validate_hcl(terragrunt_hcl):
-        OUTPUT_PATH.write_text(terragrunt_hcl)
-        print(f"✅ root.hcl written to: {OUTPUT_PATH}")
-    else:
-        print("❌ root.hcl was not saved due to validation failure.")
+    response = openai_client.chat.completions.create(
+        model="gpt-4o",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.1,
+        max_tokens=2000
+    )
 
-# === RUN ===
+    hcl_content = response.choices[0].message.content
+    hcl_content = clean_code_fences(hcl_content)
+
+    OUTPUT_PATH.write_text(hcl_content)
+    print(f"\n✅ terragrunt.hcl written successfully at: {OUTPUT_PATH}\n")
+
+    # Afișare comenzi deploy
+    print("📢 Deployment commands you can now run:\n")
+    print("terragrunt refresh")
+    included_dirs = ' '.join([f'--terragrunt-include-dir \"{m.name}\"' for m in selected])
+    print(f"terragrunt run-all init {included_dirs}")
+    print(f"terragrunt run-all plan {included_dirs} -lock=false")
+    print(f"terragrunt run-all apply {included_dirs} -lock=false")
+
 if __name__ == "__main__":
     main()
